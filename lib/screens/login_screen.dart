@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
+import 'package:chat/helpers/mostrar_alerta_login.dart';
+import 'package:chat/services/auth_service.dart';
 import 'package:chat/widgets/custom_button.dart';
 import 'package:chat/widgets/custom_label.dart';
 import 'package:chat/widgets/custom_logo.dart';
@@ -18,9 +22,9 @@ class LoginScreen extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.9,
-            child: Column(
+            child: const Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 CustomLogo(titulo: 'Messenger'),
                   
                 _Form(),
@@ -53,6 +57,8 @@ class __FormState extends State<_Form> {
   @override
   Widget build(BuildContext context) {
 
+    final authService = Provider.of<AuthService>(context);
+
     return Container(
       margin: const EdgeInsets.only(top: 50),
       padding: const EdgeInsets.symmetric(horizontal: 50),
@@ -75,8 +81,24 @@ class __FormState extends State<_Form> {
           CustomButton(
             titulo: 'Ingrese', 
             color: Colors.blue,
-            onPress: () {
-              
+            onPress: authService.isAutenticando ? null : () async {
+              // Se quita el foco y/o teclado
+              FocusScope.of(context).unfocus();
+
+              // Enviamos datos para autenticación
+              final isAuth = await authService.login(emailController.text.trim(), passwordController.text.trim());
+
+              if(isAuth) {
+                // TODO: Conectamos al socket server
+
+                // Navegamos al home
+                if (context.mounted) Navigator.pushReplacementNamed(context, 'usuarios');
+
+              } else {
+                // Mostramos alerta
+                if (context.mounted) showAlert(context, 'Login Incorrecto', 'Revise sus credenciales');
+              }
+
             },
           )
           
