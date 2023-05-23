@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:chat/helpers/mostrar_alerta_login.dart';
 import 'package:chat/services/auth_service.dart';
+import 'package:chat/services/socket_service.dart';
 import 'package:chat/widgets/custom_button.dart';
 import 'package:chat/widgets/custom_label.dart';
 import 'package:chat/widgets/custom_logo.dart';
@@ -58,6 +59,7 @@ class __FormState extends State<_Form> {
   Widget build(BuildContext context) {
 
     final authService = Provider.of<AuthService>(context);
+    final socketService = Provider.of<SocketService>(context);
 
     return Container(
       margin: const EdgeInsets.only(top: 50),
@@ -89,7 +91,8 @@ class __FormState extends State<_Form> {
               final isAuth = await authService.login(emailController.text.trim(), passwordController.text.trim());
 
               if(isAuth) {
-                // TODO: Conectamos al socket server
+                // Conectamos al socket server
+                socketService.connect();
 
                 // Navegamos al home
                 if (context.mounted) Navigator.pushReplacementNamed(context, 'usuarios');

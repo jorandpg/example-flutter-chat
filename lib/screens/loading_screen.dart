@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:chat/screens/screens.dart';
 import 'package:chat/services/auth_service.dart';
+import 'package:chat/services/socket_service.dart';
 
 class LoadingScreen extends StatelessWidget {
    
@@ -26,11 +27,13 @@ class LoadingScreen extends StatelessWidget {
 
   Future checkLoginState(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
+    final socketService = Provider.of<SocketService>(context, listen: false);
 
     final isAuth = await authService.isLoggedIn();
 
     if(isAuth) {
-      // TODO: Conectar al socket server
+      // Conectar al socket server
+      socketService.connect();
 
       // Navegamos al home
       if (context.mounted) {
@@ -44,6 +47,8 @@ class LoadingScreen extends StatelessWidget {
       }
 
     } else {
+      // Desconectamos del socket server
+      socketService.disconnect();
 
       // Navegamos al login
       if (context.mounted) {

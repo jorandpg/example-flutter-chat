@@ -2,8 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:chat/models/mensajes_response.dart';
 import 'package:chat/widgets/chat_message.dart';
+import 'package:chat/services/auth_service.dart';
+import 'package:chat/services/chat_service.dart';
+import 'package:chat/services/socket_service.dart';
 
 class ChatScreen extends StatefulWidget {
    
@@ -15,14 +20,33 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
+  late AuthService authService;
+  late ChatService chatService;
+  late SocketService socketService;
+
   final _textController = TextEditingController();
   final _focusNode = FocusNode();
   bool _isEscribiendo = false;
   List<ChatMessage> _messages = [];
 
   @override
+  void initState() {
+    authService = Provider.of<AuthService>(context, listen: false);
+    chatService = Provider.of<ChatService>(context, listen: false);
+    socketService = Provider.of<SocketService>(context, listen: false);
+
+    // Escuchamos el mensaje personal (de quien nos escribe)
+    socketService.socket.on('personal_message', _listeningMessage);
+
+    _cargarHistorial(chatService.usuarioDestino.uid);
+
+    super.initState();
+  }
+
+  @override
   void dispose() {
-    // TODO: off del socket
+    // Off del socket
+    socketService.socket.off('personal_message');
 
     for(ChatMessage message in _messages) {
       message.animationController.dispose();
@@ -32,6 +56,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+
+    final usuarioDestino = chatService.usuarioDestino;
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -42,10 +69,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             CircleAvatar(
               backgroundColor: Colors.blue[100],
               maxRadius: 14,
-              child: const Text('JP', style: TextStyle(fontSize: 12),),
+              child: Text(usuarioDestino.nombre.substring(0,2), style: const TextStyle(fontSize: 12),),
             ),
             const SizedBox(height: 3,),
-            const Text('Jorge Perez', style: TextStyle(color: Colors.black87, fontSize: 12),)
+            Text(usuarioDestino.nombre, style: const TextStyle(color: Colors.black87, fontSize: 12),)
           ],
         ),
       ),
@@ -130,6 +157,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
+  // Función del boton enviar. Envía mensaje del chat al usuario destino
   _handleSubmit(String texto) {
 
     if(texto.isEmpty) return;
@@ -139,7 +167,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     final newMessage = ChatMessage(
       texto: texto, 
-      uid: '123', 
+      uid: authService.usuario.uid, 
       animationController: AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 200)
@@ -154,6 +182,42 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     setState(() {
       _isEscribiendo = false;
     });
+
+    // Emitimos el mensaje personal al usuario destino
+    socketService.socket.emit('personal_message', {
+      'from': authService.usuario.uid,
+      'to': chatService.usuarioDestino.uid,
+      'message': texto
+    });
+  }
+
+  void _listeningMessage( dynamic payload ){
+    ChatMessage message = ChatMessage(
+      texto: payload['message'], 
+      uid: payload['de'] ?? '', 
+      animationController: AnimationController(vsync: this, duration: const Duration(milliseconds: 300))
+    );
+    
+    setState(() {
+      _messages.insert(0, message);
+    });
+
+    message.animationController.forward();
+  }
+  
+  void _cargarHistorial(String usuarioId) async {
+    List<Mensaje> chat = await chatService.getChat(usuarioId);
+
+    final history = chat.map((m) => ChatMessage(
+      texto: m.message, 
+      uid: m.from, 
+      animationController: AnimationController(vsync: this, duration: const Duration(milliseconds: 0))..forward()
+    ));
+
+    setState(() {
+      _messages.insertAll(0, history);
+    });
+
   }
   
 }
